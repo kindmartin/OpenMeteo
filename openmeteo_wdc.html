@@ -1,13 +1,13 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Open-Meteo Web Data Connector</title>
+    <title>Open-Meteo BA – Últimos 6 meses</title>
     <script src="https://connectors.tableau.com/libs/tableauwdc-2.3.latest.js"></script>
     <script>
       (function () {
         var myConnector = tableau.makeConnector();
 
-        // --- Esquema de la tabla ---
+        // ---------- Esquema ----------
         myConnector.getSchema = function (schemaCallback) {
           var cols = [
             { id: "time", dataType: tableau.dataTypeEnum.string },
@@ -20,32 +20,29 @@
 
           var tableSchema = {
             id: "openMeteoTable",
-            alias: "Open-Meteo Archive (hourly)",
+            alias: "Open-Meteo BA – Últimos 6 meses (horario)",
             columns: cols
           };
 
           schemaCallback([tableSchema]);
         };
 
-        // --- Descarga de datos ---
+        // ---------- Descarga de datos ----------
         myConnector.getData = function (table, doneCallback) {
-          // La URL ya viene armada en connectionData
           var url = tableau.connectionData;
           if (!url) {
-            tableau.abortWithError("No se recibió URL de Open-Meteo.");
+            tableau.abortWithError("No se encontró la URL del API.");
             return;
           }
 
           fetch(url)
             .then(function (response) {
-              if (!response.ok) {
-                throw new Error("Error HTTP: " + response.status);
-              }
+              if (!response.ok) throw new Error("HTTP " + response.status);
               return response.json();
             })
             .then(function (data) {
               if (!data.hourly || !data.hourly.time) {
-                throw new Error("Respuesta sin sección 'hourly' válida.");
+                throw new Error("Respuesta sin sección 'hourly'.");
               }
 
               var h = data.hourly;
@@ -67,67 +64,61 @@
               doneCallback();
             })
             .catch(function (err) {
-              tableau.abortWithError("Error al obtener datos de Open-Meteo: " + err.message);
+              tableau.abortWithError("Error Open-Meteo: " + err.message);
             });
         };
 
         tableau.registerConnector(myConnector);
 
-        // --- Helpers UI ---
-        function buildUrl() {
+        // ---------- Helpers ----------
+        function formatDate(d) {
+          var y = d.getFullYear();
+          var m = String(d.getMonth() + 1).padStart(2, "0");
+          var day = String(d.getDate()).padStart(2, "0");
+          return y + "-" + m + "-" + day;
+        }
+
+        function buildUrlLast6Months() {
+          // Siempre Buenos Aires
           var lat = -34.61;
           var lon = -58.38;
-          var start = document.getElementById("startDate").value;
-          var end = document.getElementById("endDate").value;
 
-          // Variables seleccionadas
-          var vars = [];
-          if (document.getElementById("tempVar").checked) vars.push("temperature_2m");
-          if (document.getElementById("precVar").checked) vars.push("precipitation");
-          if (document.getElementById("windVar").checked) vars.push("windspeed_10m", "winddirection_10m");
-          if (document.getElementById("presVar").checked) vars.push("pressure_msl");
+          var today = new Date();
+          var start = new Date();
+          start.setMonth(start.getMonth() - 6);
 
-          if (!start || !end) {
-            alert("Elegí fecha desde y hasta.");
-            return null;
-          }
-          if (vars.length === 0) {
-            alert("Seleccioná al menos una variable.");
-            return null;
-          }
+          var startStr = formatDate(start);
+          var endStr = formatDate(today);
 
           var base = "https://archive-api.open-meteo.com/v1/archive?";
           var params = [
             "latitude=" + lat,
             "longitude=" + lon,
-            "start_date=" + start,
-            "end_date=" + end,
-            "hourly=" + vars.join(","),
+            "start_date=" + startStr,
+            "end_date=" + endStr,
+            "hourly=temperature_2m,precipitation,windspeed_10m,winddirection_10m,pressure_msl",
             "timezone=America%2FArgentina%2FBuenos_Aires"
           ];
 
-          return base + params.join("&");
+          return {
+            url: base + params.join("&"),
+            start: startStr,
+            end: endStr
+          };
         }
 
         document.addEventListener("DOMContentLoaded", function () {
-          // Botón que arma la URL para Buenos Aires
-          document.getElementById("setBAButton").onclick = function () {
-            var url = buildUrl();
-            if (url) {
-              document.getElementById("apiUrl").value = url;
-            }
-          };
+          var infoSpan = document.getElementById("info");
+          var urlSpan = document.getElementById("urlPreview");https://github.com/kindmartin/OpenMeteo/blob/main/openmeteo_wdc.html
 
-          // Botón de enviar a Tableau
+          // Precalcular rango y URL
+          var cfg = buildUrlLast6Months();
+          infoSpan.textContent = cfg.start + "  →  " + cfg.end;
+          urlSpan.textContent = cfg.url;
+
           document.getElementById("submitButton").onclick = function () {
-            var url = document.getElementById("apiUrl").value.trim();
-            if (!url) {
-              alert("Primero generá o pegá una URL de Open-Meteo.");
-              return;
-            }
-
-            tableau.connectionName = "Open-Meteo Buenos Aires (hourly)";
-            tableau.connectionData = url; // guardamos la URL acá
+            tableau.connectionName = "BA – Clima Open-Meteo (últimos 6 meses)";
+            tableau.connectionData = cfg.url;
             tableau.submit();
           };
         });
@@ -135,42 +126,20 @@
     </script>
     <style>
       body { font-family: Arial, sans-serif; margin: 16px; }
-      label { display: inline-block; margin: 4px 0; }
-      .section { margin-bottom: 12px; }
-      input[type="date"] { margin-right: 8px; }
-      input[type="text"] { width: 100%; }
+      #urlPreview { font-size: 11px; word-break: break-all; }
+      button { margin-top: 12px; padding: 6px 12px; }
     </style>
   </head>
 
   <body>
-    <h2>Open-Meteo Web Data Connector</h2>
-
-    <div class="section">
-      <strong>1. Rango de fechas (Buenos Aires, horario local)</strong><br>
-      Desde: <input type="date" id="startDate">
-      Hasta: <input type="date" id="endDate">
-    </div>
-
-    <div class="section">
-      <strong>2. Variables</strong><br>
-      <label><input type="checkbox" id="tempVar" checked> Temperatura 2m</label><br>
-      <label><input type="checkbox" id="precVar" checked> Precipitación</label><br>
-      <label><input type="checkbox" id="windVar" checked> Viento (velocidad y dirección)</label><br>
-      <label><input type="checkbox" id="presVar" checked> Presión a nivel del mar</label>
-    </div>
-
-    <div class="section">
-      <strong>3. Generar URL para Buenos Aires</strong><br>
-      <button id="setBAButton">Usar clima de Buenos Aires</button>
-    </div>
-
-    <div class="section">
-      <strong>4. URL del API (podés editarla a mano si querés)</strong><br>
-      <input type="text" id="apiUrl" placeholder="La URL se completa sola con el botón o pegala manualmente">
-    </div>
-
-    <div class="section">
-      <button id="submitButton">Cargar en Tableau</button>
-    </div>
+    <h2>Open-Meteo – Buenos Aires (últimos 6 meses)</h2>
+    <p>
+      Ciudad fija: <strong>Buenos Aires (-34.61, -58.38)</strong><br>
+      Rango: <span id="info"></span> (calculado al momento de la conexión)
+    </p>
+    <p><strong>URL generada:</strong><br>
+      <span id="urlPreview"></span>
+    </p>
+    <button id="submitButton">Cargar en Tableau</button>
   </body>
 </html>
