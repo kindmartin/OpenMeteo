@@ -1,0 +1,76 @@
+<html>
+  <head>
+    <script src="https://connectors.tableau.com/libs/tableauwdc-2.3.latest.js"></script>
+    <script>
+      (function() {
+        var myConnector = tableau.makeConnector();
+
+        myConnector.getSchema = function(schemaCallback) {
+          var cols = [
+            { id: "time", dataType: tableau.dataTypeEnum.string },
+            { id: "temperature_2m", dataType: tableau.dataTypeEnum.float },
+            { id: "precipitation", dataType: tableau.dataTypeEnum.float },
+            { id: "windspeed_10m", dataType: tableau.dataTypeEnum.float },
+            { id: "winddirection_10m", dataType: tableau.dataTypeEnum.float },
+            { id: "pressure_msl", dataType: tableau.dataTypeEnum.float }
+          ];
+
+          var tableSchema = {
+            id: "openMeteoTable",
+            columns: cols
+          };
+
+          schemaCallback([tableSchema]);
+        };
+
+        myConnector.getData = function(table, doneCallback) {
+          var url = document.getElementById("apiUrl").value;
+
+          fetch(url)
+            .then(response => response.json())
+            .then(data => {
+              var times = data.hourly.time;
+              var temp = data.hourly.temperature_2m;
+              var prec = data.hourly.precipitation;
+              var wind = data.hourly.windspeed_10m;
+              var winddir = data.hourly.winddirection_10m;
+              var press = data.hourly.pressure_msl;
+
+              var tableData = [];
+
+              for (var i = 0; i < times.length; i++) {
+                tableData.push({
+                  time: times[i],
+                  temperature_2m: temp[i],
+                  precipitation: prec[i],
+                  windspeed_10m: wind[i],
+                  winddirection_10m: winddir[i],
+                  pressure_msl: press[i]
+                });
+              }
+
+              table.appendRows(tableData);
+              doneCallback();
+            });
+        };
+
+        tableau.registerConnector(myConnector);
+
+        document.addEventListener("DOMContentLoaded", function() {
+          document.getElementById("submitButton").onclick = function() {
+            tableau.connectionName = "Open-Meteo Weather Data";
+            tableau.submit();
+          };
+        });
+      })();
+    </script>
+  </head>
+
+  <body>
+    <h3>Open-Meteo Web Data Connector</h3>
+    <p>Pegá aquí la URL del API (Archive API):</p>
+    <input type="text" id="apiUrl" size="120">
+    <br><br>
+    <button id="submitButton">Cargar en Tableau</button>
+  </body>
+</html>
