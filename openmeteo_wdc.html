@@ -85,7 +85,7 @@
 
           var today = new Date();
           var start = new Date();
-          start.setMonth(start.getMonth() - 6);
+          start.setMonth(start.getMonth() - 12);
 
           var startStr = formatDate(start);
           var endStr = formatDate(today);
@@ -117,7 +117,7 @@
           urlSpan.textContent = cfg.url;
 
           document.getElementById("submitButton").onclick = function () {
-            tableau.connectionName = "BA – Clima Open-Meteo (últimos 6 meses)";
+            tableau.connectionName = "BA – Clima Open-Meteo (últimos 12 meses)";
             tableau.connectionData = cfg.url;
             tableau.submit();
           };
@@ -132,7 +132,7 @@
   </head>
 
   <body>
-    <h2>Open-Meteo – Buenos Aires (últimos 6 meses)</h2>
+    <h2>Open-Meteo – Buenos Aires (últimos 12 meses)</h2>
     <p>
       Ciudad fija: <strong>Buenos Aires (-34.61, -58.38)</strong><br>
       Rango: <span id="info"></span> (calculado al momento de la conexión)
@@ -143,3 +143,4 @@
     <button id="submitButton">Cargar en Tableau</button>
   </body>
 </html>
+
